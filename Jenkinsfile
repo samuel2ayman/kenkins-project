@@ -54,7 +54,7 @@ pipeline {
 
                     docker run -d \
                         --name ${CONTAINER_NAME} \
-                        -p 8080:8080 \
+                        -p 8080:80 \
                         --restart unless-stopped \
                         ${FULL_IMAGE}:${BUILD_NUMBER}
                 """
