@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
@@ -6,5 +6,10 @@ RUN pip install --no-cache-dir pandas matplotlib
 
 COPY app.py .
 
-# Run the script then serve the report so the container stays alive
-CMD python app.py --out /app/report.html && python -m http.server 8080
+RUN python app.py --out /app/report.html
+
+FROM nginx:alpine
+
+COPY --from=builder /app/report.html /usr/share/nginx/html/index.html
+
+EXPOSE 80
