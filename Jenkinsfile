@@ -20,14 +20,12 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                echo '📥 Checking out source code...'
                 checkout scm
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo "🐳 Building ${FULL_IMAGE}:${BUILD_NUMBER}"
                 sh """
                     docker build \
                         -t ${FULL_IMAGE}:${BUILD_NUMBER} \
@@ -39,60 +37,40 @@ pipeline {
 
         stage('Push to GHCR') {
             steps {
-                echo '📦 Pushing image to GitHub Container Registry...'
                 sh """
                     echo "${GITHUB_TOKEN}" | \
                         docker login ghcr.io -u ${GITHUB_USER} --password-stdin
 
                     docker push ${FULL_IMAGE}:${BUILD_NUMBER}
                     docker push ${FULL_IMAGE}:latest
-
-                    echo "✅ Pushed ${FULL_IMAGE}:${BUILD_NUMBER} and :latest"
                 """
             }
         }
 
         stage('Run on Docker') {
             steps {
-                echo '🚀 Running the sales analyzer container...'
                 sh """
-                    # Remove old container if exists
                     docker rm -f ${CONTAINER_NAME} 2>/dev/null || true
 
-                    # Run and save the HTML report to the host
-                    docker run \
+                    docker run -d \
                         --name ${CONTAINER_NAME} \
-                        -v \$(pwd)/output:/app/output \
-                        ${FULL_IMAGE}:${BUILD_NUMBER} \
-                        python app.py --out /app/output/report.html
+                        -p 8080:8080 \
+                        --restart unless-stopped \
+                        ${FULL_IMAGE}:${BUILD_NUMBER}
                 """
             }
         }
 
         stage('Show Results') {
             steps {
-                echo '🔍 Verifying the container ran successfully...'
                 sh """
-                    echo "──────────── Container Exit Status ────────────"
-                    EXIT_CODE=\$(docker inspect ${CONTAINER_NAME} --format='{{.State.ExitCode}}')
-                    echo "Exit code: \$EXIT_CODE"
+                    sleep 8
 
-                    if [ "\$EXIT_CODE" != "0" ]; then
-                        echo "❌ Script failed!"
-                        docker logs ${CONTAINER_NAME}
-                        exit 1
-                    fi
+                    echo "------------ Container Status ------------"
+                    docker ps --filter name=${CONTAINER_NAME}
 
-                    echo "──────────── Container Logs ────────────────────"
+                    echo "------------ Container Logs ------------"
                     docker logs ${CONTAINER_NAME}
-
-                    echo "──────────── Output File ───────────────────────"
-                    ls -lh output/report.html
-
-                    echo "──────────── Docker Container Status ──────────"
-                    docker ps -a --filter name=${CONTAINER_NAME}
-
-                    echo "✅ Script ran successfully. Report saved to: \$(pwd)/output/report.html"
                 """
             }
         }
@@ -100,16 +78,14 @@ pipeline {
 
     post {
         success {
-            echo "✅ Pipeline #${BUILD_NUMBER} succeeded."
+            echo "Pipeline ${BUILD_NUMBER} succeeded."
         }
         failure {
-            echo '❌ Pipeline failed. Check logs above.'
+            echo "Pipeline ${BUILD_NUMBER} failed."
         }
         always {
             sh 'docker logout ghcr.io || true'
             sh 'docker image prune -f || true'
-            // Container is kept alive so you can screenshot it
-            // Run manually when done: docker rm -f sales-analyzer
         }
     }
 }
