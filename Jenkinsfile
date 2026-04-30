@@ -89,6 +89,9 @@ pipeline {
                     echo "──────────── Output File ───────────────────────"
                     ls -lh output/report.html
 
+                    echo "──────────── Docker Container Status ──────────"
+                    docker ps -a --filter name=${CONTAINER_NAME}
+
                     echo "✅ Script ran successfully. Report saved to: \$(pwd)/output/report.html"
                 """
             }
@@ -105,7 +108,8 @@ pipeline {
         always {
             sh 'docker logout ghcr.io || true'
             sh 'docker image prune -f || true'
-            sh "docker rm -f ${CONTAINER_NAME} 2>/dev/null || true"
+            // Container is kept alive so you can screenshot it
+            // Run manually when done: docker rm -f sales-analyzer
         }
     }
 }
