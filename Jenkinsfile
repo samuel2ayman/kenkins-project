@@ -50,11 +50,13 @@ pipeline {
         stage('Run on Docker') {
             steps {
                 sh """
+                    # Remove the old container if it exists
                     docker rm -f ${CONTAINER_NAME} 2>/dev/null || true
 
+                    # Map to port 8081 on the host to avoid Jenkins conflict
                     docker run -d \
                         --name ${CONTAINER_NAME} \
-                        -p 8080:80 \
+                        -p 8081:80 \
                         --restart unless-stopped \
                         ${FULL_IMAGE}:${BUILD_NUMBER}
                 """
